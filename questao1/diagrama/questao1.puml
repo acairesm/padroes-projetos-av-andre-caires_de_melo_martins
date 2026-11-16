@@ -1,0 +1,298 @@
+@startuml questao1
+title Questão 1 — Provisionamento Multinuvem\nPadrões aplicados: Abstract Factory (RNF01, RNF02, RNF03, RNF06) e Singleton (RNF04, RNF05)
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam class {
+  BackgroundColor<<AbstractFactory>> #FFF4CC
+  BackgroundColor<<ConcreteFactory>> #FFE699
+  BackgroundColor<<AbstractProduct>> #DDEBF7
+  BackgroundColor<<ConcreteProduct>> #BDD7EE
+  BackgroundColor<<Singleton>> #E2EFDA
+  BackgroundColor<<Client>> #FCE4D6
+}
+
+package "Produtos abstratos" {
+  interface Recurso {
+    + getIdentificador(): String
+    + getProvedor(): String
+  }
+  interface MaquinaVirtual <<AbstractProduct>> {
+    + getCustoPorHora(): double
+  }
+  interface ArmazenamentoObjetos <<AbstractProduct>> {
+    + getGb(): int
+    + getCustoPorGbMes(): double
+  }
+  interface FilaMensagens <<AbstractProduct>> {
+    + getCustoFixoMensal(): double
+  }
+  class Tarifa <<record>> {
+    + custoVmPorHora: double
+    + custoGbPorMes: double
+    + custoFixoFila: double
+  }
+  Recurso <|-- MaquinaVirtual
+  Recurso <|-- ArmazenamentoObjetos
+  Recurso <|-- FilaMensagens
+}
+
+package "Fábrica abstrata" {
+  interface FabricaProvedor <<AbstractFactory>> {
+    + getNome(): String
+    + getTarifa(): Tarifa
+    + criarMaquinaVirtual(): MaquinaVirtual
+    + criarArmazenamento(gb: int): ArmazenamentoObjetos
+    + criarFila(): FilaMensagens
+  }
+}
+
+package "Família Aws" {
+  class AwsFabrica <<ConcreteFactory>> {
+    + {static} NOME: String = "Aws"
+    - {static} TARIFA: Tarifa
+    - sequenciaMaquina: AtomicInteger
+    - sequenciaArmazenamento: AtomicInteger
+    - sequenciaFila: AtomicInteger
+    + getNome(): String
+    + getTarifa(): Tarifa
+    + criarMaquinaVirtual(): MaquinaVirtual
+    + criarArmazenamento(gb: int): ArmazenamentoObjetos
+    + criarFila(): FilaMensagens
+  }
+  class AwsMaquinaVirtual <<ConcreteProduct>> {
+    + {static} PREFIXO = "i-"
+    + {static} CUSTO_POR_HORA = 0.10
+    - identificador: String
+    ~ AwsMaquinaVirtual(identificador: String)
+  }
+  class AwsArmazenamento <<ConcreteProduct>> {
+    + {static} PREFIXO = "s3://"
+    + {static} CUSTO_POR_GB_MES = 0.023
+    - identificador: String
+    - gb: int
+    ~ AwsArmazenamento(identificador: String, gb: int)
+  }
+  class AwsFila <<ConcreteProduct>> {
+    + {static} PREFIXO = "sqs-"
+    + {static} CUSTO_FIXO_MENSAL = 0.40
+    - identificador: String
+    ~ AwsFila(identificador: String)
+  }
+}
+
+package "Família Azure" {
+  class AzureFabrica <<ConcreteFactory>> {
+    + {static} NOME: String = "Azure"
+    - {static} TARIFA: Tarifa
+    - sequenciaMaquina: AtomicInteger
+    - sequenciaArmazenamento: AtomicInteger
+    - sequenciaFila: AtomicInteger
+    + getNome(): String
+    + getTarifa(): Tarifa
+    + criarMaquinaVirtual(): MaquinaVirtual
+    + criarArmazenamento(gb: int): ArmazenamentoObjetos
+    + criarFila(): FilaMensagens
+  }
+  class AzureMaquinaVirtual <<ConcreteProduct>> {
+    + {static} PREFIXO = "vm-"
+    + {static} CUSTO_POR_HORA = 0.12
+    - identificador: String
+    ~ AzureMaquinaVirtual(identificador: String)
+  }
+  class AzureArmazenamento <<ConcreteProduct>> {
+    + {static} PREFIXO = "blob://"
+    + {static} CUSTO_POR_GB_MES = 0.02
+    - identificador: String
+    - gb: int
+    ~ AzureArmazenamento(identificador: String, gb: int)
+  }
+  class AzureFila <<ConcreteProduct>> {
+    + {static} PREFIXO = "sb-"
+    + {static} CUSTO_FIXO_MENSAL = 0.50
+    - identificador: String
+    ~ AzureFila(identificador: String)
+  }
+}
+
+package "Configuração" {
+  class Configuracao <<Singleton>> {
+    - {static} Holder.INSTANCIA: Configuracao
+    - regiaoPadrao: String
+    - orcamentoMensalMaximo: double
+    - Configuracao()
+    + {static} getInstancia(): Configuracao
+    + getRegiaoPadrao(): String
+    + getOrcamentoMensalMaximo(): double
+  }
+}
+
+package "Auditoria" {
+  class HistoricoAuditoria <<Singleton>> {
+    - {static} Holder.INSTANCIA: HistoricoAuditoria
+    - registros: List<RegistroAuditoria>
+    - HistoricoAuditoria()
+    + {static} getInstancia(): HistoricoAuditoria
+    + registrar(ambiente, provedor, resultado, motivo): RegistroAuditoria
+    + getRegistros(): List<RegistroAuditoria>
+    + imprimir(): void
+  }
+  class RegistroAuditoria <<record>> {
+    + dataHora: LocalDateTime
+    + ambiente: String
+    + provedor: String
+    + resultado: Resultado
+    + motivo: String
+  }
+  enum Resultado {
+    ACEITO
+    RECUSADO
+  }
+}
+
+package "Montagem do ambiente" {
+  class ProvisionadorAmbiente <<Client>> {
+    + provisionar(solicitacao: SolicitacaoAmbiente): Ambiente
+  }
+  class SolicitacaoAmbiente {
+    - nomeAmbiente: String
+    - provedor: FabricaProvedor
+    - quantidadeMaquinas: int
+    - gbArmazenamento: int
+  }
+  class Ambiente {
+    - nome: String
+    - provedor: String
+    - regiao: String
+    - validarMesmoProvedor(): void
+    + getCustoMensalEstimado(): double
+    + gerarResumo(): String
+  }
+  class CalculadoraCusto {
+    + {static} HORAS_POR_MES: int = 730
+    + {static} estimar(tarifa: Tarifa, qtdMaquinas: int, gb: int): double
+    + {static} calcular(maquinas, armazenamento, fila): double
+  }
+  class OrcamentoExcedidoException
+}
+
+package "Ponto de entrada" {
+  class Main {
+    - {static} escolherProvedor(nome: String): FabricaProvedor
+    + {static} main(args: String[]): void
+  }
+}
+
+FabricaProvedor <|.. AwsFabrica
+FabricaProvedor <|.. AzureFabrica
+FabricaProvedor ..> Tarifa : retorna
+
+MaquinaVirtual <|.. AwsMaquinaVirtual
+ArmazenamentoObjetos <|.. AwsArmazenamento
+FilaMensagens <|.. AwsFila
+
+MaquinaVirtual <|.. AzureMaquinaVirtual
+ArmazenamentoObjetos <|.. AzureArmazenamento
+FilaMensagens <|.. AzureFila
+
+AwsFabrica ..> AwsMaquinaVirtual : <<create>>
+AwsFabrica ..> AwsArmazenamento : <<create>>
+AwsFabrica ..> AwsFila : <<create>>
+
+AzureFabrica ..> AzureMaquinaVirtual : <<create>>
+AzureFabrica ..> AzureArmazenamento : <<create>>
+AzureFabrica ..> AzureFila : <<create>>
+
+SolicitacaoAmbiente o--> "1" FabricaProvedor : provedor
+ProvisionadorAmbiente ..> SolicitacaoAmbiente : recebe
+ProvisionadorAmbiente ..> FabricaProvedor : usa apenas\na interface
+ProvisionadorAmbiente ..> Ambiente : <<create>>
+ProvisionadorAmbiente ..> CalculadoraCusto : usa
+ProvisionadorAmbiente ..> OrcamentoExcedidoException : lança
+ProvisionadorAmbiente ..> Configuracao : getInstancia()
+ProvisionadorAmbiente ..> HistoricoAuditoria : getInstancia()
+
+Ambiente "1" *--> "1..*" MaquinaVirtual : maquinas
+Ambiente "1" *--> "1" ArmazenamentoObjetos : armazenamento
+Ambiente "1" *--> "1" FilaMensagens : fila
+Ambiente ..> CalculadoraCusto : usa
+
+HistoricoAuditoria "1" *--> "0..*" RegistroAuditoria : registros
+RegistroAuditoria --> Resultado
+
+Main ..> AwsFabrica : <<create>>
+Main ..> AzureFabrica : <<create>>
+Main ..> SolicitacaoAmbiente : <<create>>
+Main ..> ProvisionadorAmbiente : <<create>>
+Main ..> HistoricoAuditoria : imprimir()
+
+note top of FabricaProvedor
+  **Abstract Factory** — AbstractFactory
+  Declara a criação da família completa
+  (VM, armazenamento, fila) de um provedor.
+  RNF01: tudo vem de uma só fábrica.
+  RNF03: novo provedor = nova fábrica + produtos.
+end note
+
+note bottom of AwsFabrica
+  **ConcreteFactory** (Aws)
+  Só a fábrica chama os construtores dos produtos:
+  só a fábrica instancia recursos (RNF06).
+  Contadores AtomicInteger geram IDs
+  sequenciais por tipo (RF03).
+end note
+
+note bottom of AzureFabrica
+  **ConcreteFactory** (Azure)
+  Mesmo papel da AwsFabrica para a
+  família de produtos Azure (RF02).
+end note
+
+note left of ProvisionadorAmbiente
+  **Client** do Abstract Factory
+  Depende só de FabricaProvedor; não conhece
+  classes concretas e não usa if/switch (RNF02).
+  Estima o custo via Tarifa ANTES de criar
+  recursos e recusa se exceder o orçamento (RF05).
+end note
+
+note right of Configuracao
+  **Singleton** (RNF04)
+  Lê config.properties uma única vez
+  (initialization-on-demand holder, thread-safe).
+  Qualquer classe acessa via getInstancia().
+end note
+
+note right of HistoricoAuditoria
+  **Singleton** thread-safe (RNF05)
+  Instância única; métodos synchronized
+  garantem que registros simultâneos não
+  se perdem e preservam a ordem (RF07).
+end note
+
+note right of Main
+  Único ponto que conhece as fábricas
+  concretas e **escolhe o provedor**
+  (switch em escolherProvedor).
+  Dispara 4 provisionamentos em
+  threads distintas (RF08).
+end note
+
+note bottom of Ambiente
+  Valida que todos os recursos têm o mesmo
+  provedor do ambiente — segunda barreira
+  contra a mistura de provedores (RNF01).
+end note
+
+legend right
+  |= Cor |= Papel no padrão |
+  |<back:#FFF4CC>   </back>| AbstractFactory |
+  |<back:#FFE699>   </back>| ConcreteFactory |
+  |<back:#DDEBF7>   </back>| AbstractProduct |
+  |<back:#BDD7EE>   </back>| ConcreteProduct |
+  |<back:#FCE4D6>   </back>| Client |
+  |<back:#E2EFDA>   </back>| Singleton |
+endlegend
+
+@enduml

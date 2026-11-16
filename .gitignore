@@ -1,0 +1,8 @@
+# Saída de compilação Java
+out/
+*.class
+
+# IDEs
+.vscode/
+.idea/
+*.iml
