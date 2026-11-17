@@ -1,0 +1,189 @@
+@startuml questao2
+title Questão 2 — Casa de Leilões Online\nPadrões aplicados: Observer (RNF01), Strategy (RNF02) e Decorator (RNF03, RNF04)
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam class {
+  BackgroundColor<<Subject>> #FFF4CC
+  BackgroundColor<<Observer>> #FFF4CC
+  BackgroundColor<<ConcreteSubject / Context>> #FFE699
+  BackgroundColor<<ConcreteObserver>> #FFE699
+  BackgroundColor<<Strategy>> #DDEBF7
+  BackgroundColor<<ConcreteStrategy>> #BDD7EE
+  BackgroundColor<<Component>> #E2EFDA
+  BackgroundColor<<ConcreteComponent>> #C6E0B4
+  BackgroundColor<<Decorator>> #C6E0B4
+  BackgroundColor<<ConcreteDecorator>> #A9D08E
+  BackgroundColor<<Client>> #FCE4D6
+}
+
+package "Observer — comunicação de lances (RNF01)" {
+  interface Observavel <<Subject>> {
+    + acompanhar(i: InteressadoLote): void
+    + deixarDeAcompanhar(i: InteressadoLote): void
+    + notificar(lance: Lance): void
+  }
+  interface InteressadoLote <<Observer>> {
+    + atualizar(lote: Lote, lance: Lance): void
+  }
+  interface Licitante {
+    + getNome(): String
+  }
+  class Lance <<record>> {
+    + licitante: Licitante
+    + valor: BigDecimal
+    + instante: LocalDateTime
+  }
+  class Participante <<ConcreteObserver>> {
+    - nome: String
+    + getNome(): String
+    + atualizar(lote: Lote, lance: Lance): void
+  }
+  class PainelLeiloeiro <<ConcreteObserver>> {
+    + atualizar(lote: Lote, lance: Lance): void
+  }
+  class Auditor <<ConcreteObserver>> {
+    - registros: List<String>
+    + atualizar(lote: Lote, lance: Lance): void
+    + getRegistros(): List<String>
+  }
+}
+
+class Lote <<ConcreteSubject / Context>> {
+  - nome: String
+  - categoria: Categoria
+  - precoInicial: BigDecimal
+  - precoReserva: BigDecimal
+  - lances: List<Lance>
+  - interessados: List<InteressadoLote>
+  - regraComissao: RegraComissao
+  - situacao: Situacao
+  - comissao: BigDecimal
+  + acompanhar(i: InteressadoLote): void
+  + deixarDeAcompanhar(i: InteressadoLote): void
+  + notificar(lance: Lance): void
+  + darLance(l: Licitante, valor: BigDecimal): void
+  + trocarRegraComissao(r: RegraComissao): void
+  + encerrar(): Situacao
+  + imprimirAcerto(): void
+  + getLanceAtual(): BigDecimal
+  + getValorVenda(): BigDecimal
+  + getComprador(): Licitante
+  + getTotalLances(): int
+}
+enum "Lote.Situacao" as Situacao {
+  ABERTO
+  VENDIDO
+  NAO_VENDIDO
+}
+
+package "Strategy — regra de comissão (RNF02)" {
+  interface RegraComissao <<Strategy>> {
+    + calcular(valorVenda: BigDecimal): BigDecimal
+    + getDescricao(): String
+  }
+  class ComissaoArte <<ConcreteStrategy>> {
+    20% do valor
+  }
+  class ComissaoVeiculos <<ConcreteStrategy>> {
+    8%, máx. R$ 5.000,00
+  }
+  class ComissaoImoveis <<ConcreteStrategy>> {
+    3% + R$ 1.500,00
+  }
+  class ComissaoEletronicos <<ConcreteStrategy>> {
+    12%, mín. R$ 50,00
+  }
+  class Categoria <<record>> {
+    + nome: String
+    + regraPadrao: RegraComissao
+  }
+}
+
+package "Decorator — serviços adicionais (RNF03, RNF04)" {
+  interface Compra <<Component>> {
+    + getValorVenda(): BigDecimal
+    + getDetalhes(): String
+    + getTotal(): BigDecimal
+  }
+  class CompraLote <<ConcreteComponent>> {
+    - lote: Lote
+  }
+  abstract class ServicoAdicional <<Decorator>> {
+    # compra: Compra
+    # {abstract} getDescricao(): String
+    # {abstract} getCusto(): BigDecimal
+    + getDetalhes(): String
+    + getTotal(): BigDecimal
+  }
+  class SeguroTransporte <<ConcreteDecorator>> {
+    1,5% do valor de venda
+  }
+  class CertificadoAutenticidade <<ConcreteDecorator>> {
+    R$ 300,00
+  }
+  class EmbalagemEspecial <<ConcreteDecorator>> {
+    R$ 180,00
+  }
+  class EntregaExpressa <<ConcreteDecorator>> {
+    R$ 450,00
+  }
+}
+
+class Moeda <<utilitário>> {
+  + {static} formatar(v: BigDecimal): String
+}
+class Main <<Client>> {
+  + {static} main(args: String[]): void
+  - {static} imprimirFatura(c: Compra): void
+}
+
+' Observer
+Observavel <|.. Lote
+Lote o--> "0..*" InteressadoLote : interessados
+Lote *--> "0..*" Lance : lances
+Lance --> Licitante
+InteressadoLote <|.. Participante
+InteressadoLote <|.. PainelLeiloeiro
+InteressadoLote <|.. Auditor
+Licitante <|.. Participante
+Lote +-- Situacao
+
+' Strategy
+Lote o--> "1" RegraComissao : regra vigente
+Lote --> Categoria
+Categoria --> RegraComissao : regra padrão
+RegraComissao <|.. ComissaoArte
+RegraComissao <|.. ComissaoVeiculos
+RegraComissao <|.. ComissaoImoveis
+RegraComissao <|.. ComissaoEletronicos
+
+' Decorator
+Compra <|.. CompraLote
+Compra <|.. ServicoAdicional
+ServicoAdicional o--> "1" Compra : compra
+ServicoAdicional <|-- SeguroTransporte
+ServicoAdicional <|-- CertificadoAutenticidade
+ServicoAdicional <|-- EmbalagemEspecial
+ServicoAdicional <|-- EntregaExpressa
+CompraLote --> Lote : lote vendido
+
+Main ..> Lote : <<cria>>
+Main ..> Participante : <<cria>>
+Main ..> PainelLeiloeiro : <<cria>>
+Main ..> Auditor : <<cria>>
+Main ..> Compra : imprime fatura
+
+note top of Lote
+  Lote só conhece as interfaces InteressadoLote e Licitante (RNF01).
+  notificar() avisa todos os interessados, exceto o autor do lance (RF03).
+  regraComissao é trocada em tempo de execução (RF07) e
+  aplicada em encerrar() sem if/switch sobre a categoria (RNF02).
+end note
+
+note bottom of ServicoAdicional
+  Serviços são empilhados em qualquer ordem e quantidade (RNF03).
+  A fatura usa apenas Compra.getDetalhes() e getTotal() (RNF04).
+end note
+@enduml
